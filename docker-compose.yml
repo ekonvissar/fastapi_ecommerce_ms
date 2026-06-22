@@ -1,0 +1,57 @@
+services:
+  postgres-identity:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_IDENTITY_DB}
+      POSTGRES_USER: ${POSTGRES_IDENTITY_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_IDENTITY_PASSWORD}
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_IDENTITY_USER} -d ${POSTGRES_IDENTITY_DB}"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  identity:
+    build: ./services/identity
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_IDENTITY_USER}:${POSTGRES_IDENTITY_PASSWORD}@postgres-identity:5432/${POSTGRES_IDENTITY_DB}
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8001:8000"
+    depends_on:
+      postgres-identity:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  bff:
+    build: ./services/bff
+    environment:
+      IDENTITY_URL: http://identity:8000
+      CATALOG_URL: http://catalog:8000
+      ORDERING_URL: http://ordering:8000
+    depends_on:
+      - identity
+
+  gateway:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./gateway/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - bff
