@@ -1,0 +1,13 @@
+typing-extensions
+MarkupSafe
+greenlet
+SQLAlchemy
+Mako
+alembic
+PyJWT
+fastapi
+uvicorn
+asyncpg
+pydantic-settings
+pydantic[email]
+python-multipart

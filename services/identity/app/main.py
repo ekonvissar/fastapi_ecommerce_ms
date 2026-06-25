@@ -4,7 +4,8 @@ from starlette.responses import JSONResponse
 from app.api.router import router
 from app.exceptions import IdentityError
 from app.lifespan import lifespan
-#
+
+
 app = FastAPI(title="Identity Service", version="0.1.0", lifespan=lifespan)
 app.include_router(router)
 

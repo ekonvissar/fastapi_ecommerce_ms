@@ -12,6 +12,19 @@ services:
       interval: 5s
       retries: 10
 
+  postgres-catalog:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_CATALOG_DB}
+      POSTGRES_USER: ${POSTGRES_CATALOG_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_CATALOG_PASSWORD}
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_CATALOG_USER} -d ${POSTGRES_CATALOG_DB}"]
+      interval: 5s
+      retries: 10
+
   redis:
     image: redis:7-alpine
     ports:
@@ -37,6 +50,25 @@ services:
     command: >
       sh -c "alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      
+  catalog:
+    build: ./services/catalog
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_CATALOG_USER}:${POSTGRES_CATALOG_PASSWORD}@postgres-catalog:5432/${POSTGRES_CATALOG_DB}
+      SECRET_KEY: ${SECRET_KEY}
+      ALGORITHM: ${ALGORITHM}
+    ports:
+      - "8002:8000"
+    volumes:
+      - ./services/catalog/media/products:/app/media/products
+    depends_on:
+      postgres-catalog:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
 
   bff:
     build: ./services/bff
@@ -45,7 +77,10 @@ services:
       CATALOG_URL: http://catalog:8000
       ORDERING_URL: http://ordering:8000
     depends_on:
-      - identity
+      identity:
+        condition: service_started
+      catalog:
+        condition: service_started
 
   gateway:
     image: nginx:alpine

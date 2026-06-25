@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI
 
-from app.routers import auth, checkout, health
+from app.routers import auth, catalog, checkout, health
 
 API_PREFIX = "/api/v1"
 
@@ -25,4 +25,5 @@ app = FastAPI(
 
 app.include_router(health.router, prefix=API_PREFIX)
 app.include_router(auth.router, prefix=API_PREFIX)
+app.include_router(catalog.router, prefix=API_PREFIX)
 app.include_router(checkout.router, prefix=API_PREFIX)
